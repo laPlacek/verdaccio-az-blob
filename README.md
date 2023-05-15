@@ -1,0 +1,1 @@
+# verdaccio-az-blob

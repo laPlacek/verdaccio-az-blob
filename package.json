@@ -1,0 +1,25 @@
+{
+  "name": "verdaccio-az-blob",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "engines": {
+    "node": ">=12"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.14.0",
+    "@verdaccio/core": "^6.0.0-6-next.68",
+    "@verdaccio/types": "^11.0.0-6-next.25",
+    "async-lock": "^1.4.0",
+    "sanitize-filename": "^1.6.3"
+  },
+  "devDependencies": {
+    "@types/async-lock": "^1.4.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.4"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}
