@@ -15,11 +15,12 @@ const SECRET_BLOB = 'secret';
 export type AzStorageConfig = {
     account: string;
     accountKey: string;
-    containerName: string;
+    packagesContainerName: string;
+    secretContainerName?: string;
 }
 
 
-function createContainerClient({account, accountKey, containerName}: AzStorageConfig): ContainerClient {
+function createContainerClient({account, accountKey, containerName} : {account: string, accountKey: string, containerName: string}): ContainerClient {
     return new BlobServiceClient(
         `https://${account}.blob.core.windows.net`,
         new StorageSharedKeyCredential(account, accountKey)
@@ -28,13 +29,23 @@ function createContainerClient({account, accountKey, containerName}: AzStorageCo
 
 
 export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> implements pluginUtils.Storage<AzStorageConfig> {
-    containerClient = createContainerClient(this.config as AzStorageConfig);
+    packagesContainerClient = createContainerClient({
+        account: this.config.account,
+        accountKey: this.config.accountKey,
+        containerName: this.config.packagesContainerName
+    });
+
+    private secretsContainerClient = createContainerClient({
+        account: this.config.account,
+        accountKey: this.config.accountKey,
+        containerName: this.config.secretContainerName || this.config.packagesContainerName
+    });
 
     private packages = null as (string[] | null);
-    private packagesClient = this.containerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
+    private packagesClient = this.packagesContainerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
 
     private secret = '';
-    private secretClient = this.containerClient.getBlockBlobClient(SECRET_BLOB);
+    private secretClient = this.secretsContainerClient.getBlockBlobClient(SECRET_BLOB);
 
     constructor(
         public config: AzStorageConfig,
@@ -124,7 +135,7 @@ export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> imple
 
 
     getPackageStorage(packageName: string): pluginUtils.StorageHandler {
-        return new AzStorageHandler(packageName, this.options.logger, this.containerClient)
+        return new AzStorageHandler(packageName, this.options.logger, this.packagesContainerClient)
     }
 
     search(query: SearchQuery): Promise<SearchItem[]> {
