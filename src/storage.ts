@@ -14,7 +14,8 @@ const SECRET_BLOB = 'secret';
 
 export type AzStorageConfig = {
     account: string;
-    accountKey: string;
+    accountKey?: string;
+    accountKeyENV?: string;
     packagesContainerName: string;
     secretContainerName?: string;
 }
@@ -27,17 +28,28 @@ function createContainerClient({account, accountKey, containerName} : {account: 
     ).getContainerClient(containerName);
 }
 
+function getAccountKey({accountKey, accountKeyENV}: AzStorageConfig): string {
+    const envKey = accountKeyENV && process.env[accountKeyENV];
+
+    if (!accountKey && !envKey)
+        throw Error('Account key not set');
+
+    return (accountKey || envKey)!;
+}
+
 
 export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> implements pluginUtils.Storage<AzStorageConfig> {
+    private accountKey = getAccountKey(this.config);
+
     packagesContainerClient = createContainerClient({
         account: this.config.account,
-        accountKey: this.config.accountKey,
+        accountKey: this.accountKey,
         containerName: this.config.packagesContainerName
     });
 
     private secretsContainerClient = createContainerClient({
         account: this.config.account,
-        accountKey: this.config.accountKey,
+        accountKey: this.accountKey,
         containerName: this.config.secretContainerName || this.config.packagesContainerName
     });
 
