@@ -5,9 +5,6 @@ import { PassThrough, Readable, Writable } from "stream";
 import { join as joinPath} from "path";
 import { getError, getTrace } from "./logger-helpers";
 import sanitzers from 'sanitize-filename'
-import AsyncLock from "async-lock"
-
-const lock = new AsyncLock()
 
 const MANIFEST_BLOB = 'package.json';
 
@@ -49,18 +46,16 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
     async updatePackage(name: string, handleUpdate: (manifest: Manifest) => Promise<Manifest>): Promise<Manifest> {
         this.trace('updatePackage(@{name})', {name});
 
-        return lock.acquire(name, async done => {
-            try {
-                const manifest = await this._readPackage();
-                const updatedManifest = await handleUpdate(manifest);
+        try {
+            const manifest = await this._readPackage();
+            const updatedManifest = await handleUpdate(manifest);
 
-                done(null, updatedManifest)
+            return updatedManifest;
 
-            } catch(e: any) {
-                this.error('Error while updating the package @{name}', {name})
-                done(e);
-            }
-        });
+        } catch(e: any) {
+            this.error('Error while updating the package @{name}', {name})
+            throw e;
+        }
     }
 
     async readPackage(name: string): Promise<Manifest> {
@@ -86,17 +81,15 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
     async savePackage(name: string, manifest: Manifest): Promise<void> {
         this.trace('savePackage(@{name})', {name});
 
-        return lock.acquire(name, async done => {
-            try {
-                const content = JSON.stringify(manifest);
-                await this.manifestBlobClient.upload(content, content.length, {});
-                this.trace('savePackage(@{name}): Saved', {name});
-                done()
-            } catch(e: any) {
-                this.error('Error while saving the package @{name}', {name});
-                done(e);
-            }
-        });
+        try {
+            const content = JSON.stringify(manifest);
+            await this.manifestBlobClient.upload(content, content.length, {});
+            this.trace('savePackage(@{name}): Saved', {name});
+            return;
+        } catch(e: any) {
+            this.error('Error while saving the package @{name}', {name});
+            throw e;
+        }
     }
 
     async readTarball(name: string, { signal }: {
@@ -104,22 +97,20 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
     }): Promise<Readable> {
         this.trace('readTarball(@{name})', {name});
 
-        return lock.acquire(name, async done => {
-            try {
-                const client = this.getTarballBlobClient(name);
-                
-                const readStream = (await client.download(undefined, undefined, { abortSignal: signal })).readableStreamBody!;
-                const readable = new Readable().wrap(readStream);
-                signal.addEventListener('abort', () => readable.destroy(), {once: true})
+        try {
+            const client = this.getTarballBlobClient(name);
+            
+            const readStream = (await client.download(undefined, undefined, { abortSignal: signal })).readableStreamBody!;
+            const readable = new Readable().wrap(readStream);
+            signal.addEventListener('abort', () => readable.destroy(), {once: true})
 
-                this.trace('readTarball(@{name}): Stream ready', {name});
+            this.trace('readTarball(@{name}): Stream ready', {name});
 
-                done(null, readable)
-            } catch(e: any) {
-                this.error('Error while reading the tarball @{name}', {name})
-                done(e);
-            }
-        });
+            return readable;
+        } catch(e: any) {
+            this.error('Error while reading the tarball @{name}', {name})
+            throw e;
+        }
     }
 
     async writeTarball(name: string, { signal }: {
@@ -127,26 +118,24 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
     }): Promise<Writable> {
         this.trace('writeTarball(@{name})', {name});
 
-        return lock.acquire(name, async done => {
-            try {
-                const client = this.getTarballBlobClient(name);
+        try {
+            const client = this.getTarballBlobClient(name);
 
-                const tunnel = new PassThrough();
-                signal.onabort = () => tunnel.destroy();
-                client.uploadStream(tunnel, undefined, undefined, { abortSignal: signal });
+            const tunnel = new PassThrough();
+            signal.onabort = () => tunnel.destroy();
+            client.uploadStream(tunnel, undefined, undefined, { abortSignal: signal });
 
-                done(null, tunnel);
+            // Verdaccio store expects this event before starting streaming
+            process.nextTick(() => {
+                this.trace('writeTarball(@{name}): Stream ready', {name});
+                tunnel.emit('open')
+            });
 
-                // Verdaccio store expects this event before starting streaming
-                process.nextTick(() => {
-                    this.trace('writeTarball(@{name}): Stream ready', {name});
-                    tunnel.emit('open')
-                });
-            } catch(e: any) {
-                this.error('Error while writing the tarball @{name}', {name});
-                done(e);
-            }
-        });
+            return tunnel;
+        } catch(e: any) {
+            this.error('Error while writing the tarball @{name}', {name});
+            throw e;
+        }
     }
 
     async hasTarball(name: string): Promise<boolean> {
