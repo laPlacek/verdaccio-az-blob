@@ -1,4 +1,4 @@
-import { BlockBlobClient, ContainerClient, ContainerListBlobFlatSegmentResponse } from "@azure/storage-blob";
+import { ContainerClient, ContainerListBlobFlatSegmentResponse } from "@azure/storage-blob";
 import { pluginUtils } from "@verdaccio/core";
 import { Logger, Manifest } from "@verdaccio/types";
 import { PassThrough, Readable, Writable } from "stream";
@@ -159,7 +159,7 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
                 const client = this.containerClient.getBlockBlobClient(this.getPath(name));
                 const blob = (await client.download(undefined, undefined, { abortSignal: signal })).readableStreamBody!;
 
-                const inPackageName = name.slice(prefix.length)
+                const inPackageName = `package/${name.slice(prefix.length)}`
 
                 const entry = packed.entry({ name: inPackageName })
 
@@ -207,9 +207,11 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
                 .pipe(zlib.createGunzip())
                 .pipe(extract())
                 .on('entry', async ({name}, stream, next) => {
-                    this.trace('Writing file @{name}', { name });
                     const dirName = this.getDirName(tarballName);
-                    const client = this.containerClient.getBlockBlobClient(this.getPath(`${dirName}/${ name }`));
+                    const filePath = name.slice('package/'.length);
+                    const client = this.containerClient.getBlockBlobClient(this.getPath(`${dirName}/${filePath}`));
+
+                    this.trace('Writing file @{filePath}', { filePath });
                     await client.uploadStream(stream, undefined, undefined, { abortSignal: signal });
                     next()
                 });
