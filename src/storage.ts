@@ -14,27 +14,24 @@ const SECRET_BLOB = 'secret';
 
 export type AzStorageConfig = {
     account: string;
-    accountKey?: string;
-    accountKeyENV?: string;
-    packagesContainerName: string;
-    secretContainerName?: string;
+    accountKey: string;
+    container: string;
+    storeUnpacked?: boolean;
 }
 
 
-function createContainerClient({account, accountKey, containerName} : {account: string, accountKey: string, containerName: string}): ContainerClient {
+function createContainerClient({account, accountKey, container} : {account: string, accountKey: string, container: string}): ContainerClient {
     return new BlobServiceClient(
         `https://${account}.blob.core.windows.net`,
         new StorageSharedKeyCredential(account, accountKey)
-    ).getContainerClient(containerName);
+    ).getContainerClient(container);
 }
 
-function getAccountKey({accountKey, accountKeyENV}: AzStorageConfig): string {
-    const envKey = accountKeyENV && process.env[accountKeyENV];
-
-    if (!accountKey && !envKey)
+function getAccountKey({accountKey}: AzStorageConfig): string {
+    if (!accountKey)
         throw Error('Account key not set');
 
-    return (accountKey || envKey)!;
+    return process.env[accountKey] || accountKey;
 }
 
 
@@ -44,20 +41,20 @@ export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> imple
     packagesContainerClient = createContainerClient({
         account: this.config.account,
         accountKey: this.accountKey,
-        containerName: this.config.packagesContainerName
+        container: this.config.container
     });
 
-    private secretsContainerClient = createContainerClient({
+    private settingsContainerClient = createContainerClient({
         account: this.config.account,
         accountKey: this.accountKey,
-        containerName: this.config.secretContainerName || this.config.packagesContainerName
+        container: `${this.config.container}-settings`
     });
 
     private packages = null as (string[] | null);
     private packagesClient = this.packagesContainerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
 
     private secret = '';
-    private secretClient = this.secretsContainerClient.getBlockBlobClient(SECRET_BLOB);
+    private secretClient = this.settingsContainerClient.getBlockBlobClient(SECRET_BLOB);
 
     constructor(
         public config: AzStorageConfig,
@@ -147,7 +144,7 @@ export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> imple
 
 
     getPackageStorage(packageName: string): pluginUtils.StorageHandler {
-        return new AzStorageHandler(packageName, this.options.logger, this.packagesContainerClient)
+        return new AzStorageHandler(packageName, this.options.logger, this.packagesContainerClient, this.config.storeUnpacked)
     }
 
     search(query: SearchQuery): Promise<SearchItem[]> {
