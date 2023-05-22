@@ -4,7 +4,7 @@ import { Logger, Manifest } from "@verdaccio/types";
 import { PassThrough, Readable, Writable } from "stream";
 import { getError, getTrace } from "./logger-helpers";
 import { pack, extract } from "tar-stream";
-import zlib from 'zlib';
+import { createGunzip, createGzip } from 'zlib';
 
 const MANIFEST_BLOB = 'package.json';
 
@@ -151,7 +151,7 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
 
         try {
             const packed = pack();
-            const gzipped = packed.pipe(zlib.createGzip());
+            const gzipped = packed.pipe(createGzip());
 
             for await (const { name } of this.containerClient.listBlobsFlat({ prefix })) {
                 this.trace('Reading file @{name}', { name });
@@ -204,7 +204,7 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
             signal.onabort = () => tunnel.destroy();
     
             tunnel
-                .pipe(zlib.createGunzip())
+                .pipe(createGunzip())
                 .pipe(extract())
                 .on('entry', async ({name}, stream, next) => {
                     const dirName = this.getDirName(tarballName);
