@@ -44,17 +44,11 @@ export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> imple
         container: this.config.container
     });
 
-    private settingsContainerClient = createContainerClient({
-        account: this.config.account,
-        accountKey: this.accountKey,
-        container: `${this.config.container}-settings`
-    });
-
     private packages = null as (string[] | null);
     private packagesClient = this.packagesContainerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
 
     private secret = '';
-    private secretClient = this.settingsContainerClient.getBlockBlobClient(SECRET_BLOB);
+    private secretClient = this.packagesContainerClient.getBlockBlobClient(SECRET_BLOB);
 
     constructor(
         public config: AzStorageConfig,
