@@ -1,0 +1,31 @@
+{
+  "name": "@lapalcek/verdaccio-az-blob",
+  "version": "1.0.0-rc.4",
+  "description": "Verdaccio 6.x storage plugin for Azure Blob",
+  "repository": {
+    "url": "https://github.com/laPlacek/verdaccio-az-blob",
+    "type": "git"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "engines": {
+    "node": ">=12"
+  },
+  "dependencies": {
+    "@azure/storage-blob": "^12.14.0",
+    "@verdaccio/core": "^6.0.0-6-next.68",
+    "@verdaccio/types": "^11.0.0-6-next.25",
+    "async-lock": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/async-lock": "^1.4.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.4"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "author": {
+    "name": "laPlacek"
+  }
+}
