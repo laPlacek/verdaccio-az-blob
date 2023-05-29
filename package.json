@@ -1,6 +1,6 @@
 {
-  "name": "@lapalcek/verdaccio-az-blob",
-  "version": "1.0.0-rc.4",
+  "name": "verdaccio-az-blob",
+  "version": "1.0.0",
   "description": "Verdaccio 6.x storage plugin for Azure Blob",
   "repository": {
     "url": "https://github.com/laPlacek/verdaccio-az-blob",

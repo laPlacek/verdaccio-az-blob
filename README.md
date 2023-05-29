@@ -1,5 +1,7 @@
 # verdaccio-az-blob
 
+Azure blob storage plugin for Verdaccio 6
+
 In Verdaccio config: 
 ```yaml
 ...
