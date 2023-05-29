@@ -12,36 +12,35 @@ const PACKAGES_LIST_BLOB = 'packages-list.json';
 const SECRET_BLOB = 'secret';
 
 
-export type AzStorageConfig = {
+export type Config = {
     account: string;
     accountKey: string;
     container: string;
 }
 
 
-function createContainerClient({account, accountKey, container} : {account: string, accountKey: string, container: string}): ContainerClient {
+function createContainerClient({account, accountKey, container}: Config): ContainerClient {
     return new BlobServiceClient(
         `https://${account}.blob.core.windows.net`,
         new StorageSharedKeyCredential(account, accountKey)
     ).getContainerClient(container);
 }
 
-function getAccountKey({accountKey}: AzStorageConfig): string {
-    if (!accountKey)
-        throw Error('Account key not set');
 
-    return process.env[accountKey] || accountKey;
+function getConfig(config: Config): Config {
+    const c = <Config>{};
+    
+    for(let prop in config) {
+        const v = config[prop];
+        c[prop] = process.env[v] || v;
+    }
+    
+    return c;
 }
 
 
-export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> implements pluginUtils.Storage<AzStorageConfig> {
-    private accountKey = getAccountKey(this.config);
-
-    packagesContainerClient = createContainerClient({
-        account: this.config.account,
-        accountKey: this.accountKey,
-        container: this.config.container
-    });
+export default class extends pluginUtils.Plugin<Config> implements pluginUtils.Storage<Config> {
+    packagesContainerClient = createContainerClient(this.config);
 
     private packages = null as (string[] | null);
     private packagesClient = this.packagesContainerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
@@ -49,15 +48,14 @@ export default class AzStorage extends pluginUtils.Plugin<AzStorageConfig> imple
     private secret = '';
     private secretClient = this.packagesContainerClient.getBlockBlobClient(SECRET_BLOB);
 
-    constructor(
-        public config: AzStorageConfig,
-        public options: pluginUtils.PluginOptions) { 
-            super(config, options)
+    constructor(public config: Config, public options: pluginUtils.PluginOptions) {
+        super(config, options);
+        this.config = getConfig(config);
     }
     
     async init(): Promise<void> {
         const { account } = this.config;
-        this.options.logger.info({ account }, 'starting AzStorage for account @{account}')
+        this.options.logger.info({ account }, 'starting AzStorage for account @{account}');
     }
 
     async getSecret(): Promise<string> {

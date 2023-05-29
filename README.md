@@ -7,8 +7,16 @@ In Verdaccio config:
 ...
 
 store:
-   az-blob:
-     account: my-account
-     accountKey: My-53cr3t-k3Y    # either key or a name of env variable with a key
-     container: my-container-with-npm
+  az-blob:
+    account: my-account
+    accountKey: My-53cr3t-k3Y
+    container: my-container-with-npm
+
+# or with env variables
+
+store:
+  az-blob:
+    account: MY_ACCOUNT_NAME
+    accountKey: ACCOUNT_KEY
+    container: SOME_CONTAINER_NAME
 ```
