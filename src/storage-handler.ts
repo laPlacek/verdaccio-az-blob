@@ -46,9 +46,7 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
 
         try {
             const manifest = await this._readPackage();
-            const updatedManifest = await handleUpdate(manifest);
-
-            return updatedManifest;
+            return await handleUpdate(manifest);
 
         } catch(e: any) {
             this.error('Error while updating the package @{name}', {name})
@@ -60,9 +58,7 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
         this.trace('Reading manifest of @{name}', {name});
 
         try {
-            const manifest = await this._readPackage();
-
-            return manifest;
+            return await this._readPackage();
         } catch(e: any) {
             if (e.statusCode === 404) {
                 this.error('Package @{name} does not exist', {name});
@@ -119,20 +115,21 @@ export default class AzStorageHandler implements pluginUtils.StorageHandler {
     }): Promise<Writable> {
         this.trace('Writing tarbal @{name}', {name});
 
-        try {
-            const client = this.containerClient.getBlockBlobClient(this.getTarballPath(name));
+        const client = this.containerClient.getBlockBlobClient(this.getTarballPath(name));
+        const tunnel = new PassThrough();
+        signal.onabort = () => tunnel.destroy();
 
-            const tunnel = new PassThrough();
-            signal.onabort = () => tunnel.destroy();
-            client.uploadStream(tunnel, undefined, undefined, { abortSignal: signal });
+        nextTick(async () => {
+            tunnel.emit('open');
+            try {
+                await client.uploadStream(tunnel, undefined, undefined, { abortSignal: signal });
+            } catch (e) {
+                this.error('Error while writing the tarball @{name}', {name});
+                throw e;
+            }
+        });
 
-            process.nextTick(() => tunnel.emit('open'));
-
-            return tunnel;
-        } catch(e: any) {
-            this.error('Error while writing the tarball @{name}', {name});
-            throw e;
-        }
+        return tunnel;
     }
 
     private tarballName(name: string): string {

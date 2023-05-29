@@ -1,7 +1,7 @@
 import { pluginUtils } from "@verdaccio/core";
 import { SearchQuery, SearchItem } from "@verdaccio/core/build/search-utils";
 import { Token, TokenFilter } from "@verdaccio/types";
-import { BlobServiceClient, ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob";
+import { BlobServiceClient, BlockBlobClient, ContainerClient, StorageSharedKeyCredential } from "@azure/storage-blob";
 import { getError, getTrace } from "./logger-helpers";
 import AsyncLock from "async-lock"
 import AzStorageHandler from "./storage-handler";
@@ -40,22 +40,24 @@ function getConfig(config: Config): Config {
 
 
 export default class extends pluginUtils.Plugin<Config> implements pluginUtils.Storage<Config> {
-    packagesContainerClient = createContainerClient(this.config);
+    packagesContainerClient: ContainerClient;
+    packagesClient: BlockBlobClient;
+    secretClient: BlockBlobClient;
 
     private packages = null as (string[] | null);
-    private packagesClient = this.packagesContainerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
-
     private secret = '';
-    private secretClient = this.packagesContainerClient.getBlockBlobClient(SECRET_BLOB);
 
-    constructor(public config: Config, public options: pluginUtils.PluginOptions) {
-        super(config, options);
-        this.config = getConfig(config);
+    constructor(config: Config, public options: pluginUtils.PluginOptions) {
+        const c = getConfig(config);
+        super(c, options);
+
+        this.packagesContainerClient = createContainerClient(c);
+        this.packagesClient = this.packagesContainerClient.getBlockBlobClient(PACKAGES_LIST_BLOB);
+        this.secretClient = this.packagesContainerClient.getBlockBlobClient(SECRET_BLOB);
     }
     
     async init(): Promise<void> {
-        const { account } = this.config;
-        this.options.logger.info({ account }, 'starting AzStorage for account @{account}');
+        this.options.logger.info({}, 'starting AzStorage');
     }
 
     async getSecret(): Promise<string> {
